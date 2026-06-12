@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>openbox · control</title>
+<style>
+  :root{
+    --bg:#0a0c10; --panel:#11151c; --panel2:#161b24; --line:#222a36; --line2:#2c3644;
+    --ink:#e6edf3; --muted:#8b97a7; --dim:#5b6675;
+    --accent:#5eead4; --accent2:#38bdf8; --warn:#f59e0b;
+    --on:#34d399; --off:#4b5563; --danger:#f87171;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 20% -10%,rgba(56,189,248,.07),transparent 40%),
+                     radial-gradient(circle at 90% 0%,rgba(94,234,212,.06),transparent 35%);}
+  a{color:var(--accent2);text-decoration:none}
+  button{font-family:inherit;cursor:pointer}
+  .mono{font-family:var(--mono)}
+
+  #gate{position:fixed;inset:0;display:none;place-items:center;padding:24px;z-index:50;
+    background:radial-gradient(circle at 50% 30%,rgba(56,189,248,.08),var(--bg) 60%)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;
+    width:min(420px,100%);box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:-.02em;font-size:20px}
+  .logo{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));color:#05201c;font-weight:800;font-family:var(--mono)}
+  label{display:block;font-size:12px;color:var(--muted);margin:18px 0 6px;text-transform:uppercase;letter-spacing:.08em}
+  input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;
+    color:var(--ink);padding:11px 13px;font-family:var(--mono);font-size:13px;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent2)}
+  .btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#05201c;border:0;border-radius:10px;
+    padding:10px 15px;font-weight:700;font-size:13px}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--accent2)}
+  .btn.danger{background:transparent;color:var(--danger);border:1px solid rgba(248,113,113,.4)}
+  .btn.danger:hover{background:rgba(248,113,113,.1)}
+  .btn:active{transform:translateY(1px)}
+  .btn.sm{padding:6px 11px;font-size:12px}
+  .err{color:var(--danger);font-size:13px;margin-top:12px;min-height:18px;font-family:var(--mono)}
+
+  #app{display:none;max-width:1180px;margin:0 auto;padding:22px 22px 80px}
+  header{display:flex;align-items:center;gap:14px;padding:6px 2px 18px}
+  header .sp{flex:1}
+  .who{color:var(--muted);font-size:13px;font-family:var(--mono)}
+  .who b{color:var(--ink)}
+  .pill{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-family:var(--mono)}
+
+  .toolbar{display:flex;align-items:center;gap:10px;margin:8px 2px 14px}
+  .toolbar input{max-width:260px}
+  .toolbar .sp{flex:1}
+  .switch{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px;font-family:var(--mono);cursor:pointer;user-select:none}
+
+  .row{display:flex;align-items:baseline;gap:10px;margin:24px 2px 12px}
+  .row h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0;font-weight:600}
+  .row .ct{font-family:var(--mono);color:var(--dim);font-size:12px}
+
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
+  .node{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+    border-radius:14px;padding:16px;cursor:pointer;transition:border-color .15s,transform .15s}
+  .node:hover{border-color:var(--accent2);transform:translateY(-2px)}
+  .node .top{display:flex;align-items:center;gap:9px}
+  .name{font-weight:650;letter-spacing:-.01em}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--off)}
+  .dot.on{background:var(--on);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)}70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+  .node .meta{color:var(--dim);font-family:var(--mono);font-size:11.5px;margin-top:2px}
+  .node .kv{display:flex;justify-content:space-between;margin-top:13px;font-size:12px;color:var(--muted);font-family:var(--mono)}
+  .node .kv b{color:var(--ink);font-weight:550}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px}
+  .chip{font-family:var(--mono);font-size:11px;color:var(--accent);background:rgba(94,234,212,.08);
+    border:1px solid rgba(94,234,212,.2);border-radius:6px;padding:2px 8px}
+  .status-tag{margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--off)}
+  .status-tag.on{color:var(--on)}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--dim);font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    padding:8px 12px;border-bottom:1px solid var(--line)}
+  td{padding:9px 12px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px}
+  tr:last-child td{border-bottom:0}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .empty{color:var(--dim);font-family:var(--mono);font-size:13px;padding:22px;text-align:center}
+
+  #modal,#overlay{position:fixed;inset:0;display:none;z-index:40}
+  #overlay{background:rgba(4,6,9,.6);backdrop-filter:blur(2px)}
+  #modal{place-items:center;padding:24px}
+  .modal-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px;width:min(560px,100%);
+    box-shadow:0 24px 60px rgba(0,0,0,.55)}
+  .modal-card h3{margin:0 0 4px;font-size:18px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:13px}
+  .cmd{background:#05080c;border:1px solid var(--line);border-radius:10px;padding:14px;font-family:var(--mono);
+    font-size:12.5px;color:var(--accent);white-space:pre-wrap;word-break:break-all;margin-top:14px}
+  .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+  .hint{color:var(--dim);font-size:12px;margin-top:10px;font-family:var(--mono)}
+
+  /* drawer */
+  #drawer{position:fixed;top:0;right:0;height:100%;width:min(620px,100%);background:var(--panel);
+    border-left:1px solid var(--line2);box-shadow:-24px 0 60px rgba(0,0,0,.5);z-index:45;
+    transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column;overflow:hidden}
+  #drawer.open{transform:none}
+  .d-head{display:flex;align-items:center;gap:11px;padding:20px 22px;border-bottom:1px solid var(--line)}
+  .d-head .name{font-size:17px}
+  .d-close{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--muted);
+    border-radius:8px;width:30px;height:30px;font-size:16px;line-height:1}
+  .d-body{padding:20px 22px;overflow-y:auto;flex:1}
+  .d-sec{margin-bottom:22px}
+  .d-sec h4{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin:0 0 10px;font-weight:600}
+  .d-kv{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;font-family:var(--mono);font-size:12.5px}
+  .d-kv span{color:var(--muted)} .d-kv b{color:var(--ink);font-weight:550;word-break:break-all}
+  .field-row{display:flex;gap:10px;margin-top:8px}
+  .field-row .btn{flex:none}
+
+  /* console */
+  .console{background:#04060a;border:1px solid var(--line2);border-radius:10px;overflow:hidden}
+  .con-out{font-family:var(--mono);font-size:12px;line-height:1.5;padding:12px 14px;height:230px;overflow-y:auto;
+    white-space:pre-wrap;word-break:break-word;color:#cdd6e0}
+  .con-out .e{color:var(--warn)}
+  .con-out .x{color:var(--dim)} .con-out .xerr{color:var(--danger)}
+  .con-in{display:flex;gap:8px;border-top:1px solid var(--line);padding:10px;background:var(--panel2)}
+  .con-in input{flex:1}
+  .con-opts{display:flex;gap:8px;margin-top:10px}
+  .con-opts input,.con-opts select{font-size:12px;padding:8px 10px}
+
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--panel2);
+    border:1px solid var(--line);color:var(--ink);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;
+    transition:.25s;pointer-events:none;z-index:60}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .iconbtn{background:transparent;border:0;color:var(--dim);cursor:pointer;font-family:var(--mono);font-size:12px}
+  .iconbtn:hover{color:var(--danger)}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="card">
+    <div class="brand"><span class="logo">ob</span> openbox</div>
+    <div class="sub" style="margin-top:10px">Connect to your control plane.</div>
+    <label>Server</label><input id="g-server" spellcheck="false" autocapitalize="off">
+    <label>API token</label><input id="g-token" type="password" spellcheck="false" placeholder="obx_…">
+    <div style="margin-top:20px"><button class="btn" style="width:100%" onclick="login()">Connect</button></div>
+    <div class="err" id="g-err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="brand"><span class="logo">ob</span> openbox</div>
+    <span class="pill" id="srv-pill"></span>
+    <div class="sp"></div>
+    <span class="who" id="who"></span>
+    <button class="btn" onclick="openAdd()">+ Add node</button>
+    <button class="btn ghost" onclick="logout()">Sign out</button>
+  </header>
+
+  <div class="toolbar">
+    <input id="filter" placeholder="filter by name or tag…" oninput="renderNodes()">
+    <div class="sp"></div>
+    <label class="switch" style="margin:0"><input type="checkbox" id="autoref" checked style="width:auto" onchange="toggleAuto()"> auto-refresh</label>
+    <button class="btn ghost sm" onclick="refresh()">↻ refresh</button>
+  </div>
+
+  <div class="row"><h2>Nodes</h2><span class="ct" id="nodes-ct"></span></div>
+  <div class="grid" id="nodes"></div>
+
+  <div class="row"><h2>Sessions</h2><span class="ct" id="sess-ct"></span></div>
+  <div class="panel" id="sessions"></div>
+</div>
+
+<!-- node detail drawer -->
+<div id="overlay" onclick="closeDrawer()"></div>
+<div id="drawer">
+  <div class="d-head">
+    <span class="dot" id="d-dot"></span>
+    <span class="name" id="d-name">node</span>
+    <span class="status-tag" id="d-status"></span>
+    <button class="d-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="d-body" id="d-body"></div>
+</div>
+
+<!-- add node modal -->
+<div id="modal">
+  <div class="modal-card">
+    <h3>Add a node</h3>
+    <div class="sub">Mint an enrollment token, then run the command on the machine you want to add.</div>
+    <label>Tags (comma-separated)</label>
+    <input id="m-tags" placeholder="mac, gpu, lab" spellcheck="false">
+    <div id="m-out"></div>
+    <div class="actions">
+      <button class="btn ghost" onclick="closeAdd()">Close</button>
+      <button class="btn" id="m-mint" onclick="mint()">Generate command</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let SERVER='', TOKEN='', timer=null, NODES=[], curNode=null;
+
+function api(path, opts={}){
+  return fetch(SERVER+path, {...opts, headers:{...(opts.headers||{}),'Authorization':'Bearer '+TOKEN}})
+    .then(async r=>{ if(!r.ok){ const e=await r.json().catch(()=>({error:r.statusText})); throw new Error(e.error||r.status);}
+      return r.status===204?null:r.json(); });
+}
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1700); }
+function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function ago(ts){ if(!ts) return '—'; const s=Math.max(0,Math.floor(Date.now()/1000-ts));
+  if(s<60) return s+'s ago'; if(s<3600) return Math.floor(s/60)+'m ago'; if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
+
+async function login(){
+  SERVER=$('g-server').value.replace(/\/+$/,''); TOKEN=$('g-token').value.trim(); $('g-err').textContent='';
+  try{ const who=await api('/v1/whoami'); localStorage.setItem('obx',JSON.stringify({server:SERVER,token:TOKEN})); startApp(who); }
+  catch(e){ $('g-err').textContent='login failed: '+e.message; }
+}
+function logout(){ localStorage.removeItem('obx'); clearInterval(timer); location.reload(); }
+function startApp(who){ $('gate').style.display='none'; $('app').style.display='block';
+  $('who').innerHTML='signed in as <b>'+esc(who.name)+'</b>'; $('srv-pill').textContent=SERVER.replace(/^https?:\/\//,'');
+  refresh(); timer=setInterval(refresh,5000); }
+function toggleAuto(){ if($('autoref').checked){ refresh(); timer=setInterval(refresh,5000);} else clearInterval(timer); }
+
+async function refresh(){
+  try{ const [n,s]=await Promise.all([api('/v1/nodes'),api('/v1/sessions')]);
+    NODES=n.nodes||[]; renderNodes(); renderSessions(s.sessions||[]);
+    if(curNode){ const fresh=NODES.find(x=>x.id===curNode.id); if(fresh){ curNode=fresh; paintDrawerHead(fresh);} }
+  }catch(e){ toast('refresh failed: '+e.message); }
+}
+
+function renderNodes(){
+  const f=($('filter').value||'').toLowerCase();
+  const list=NODES.filter(n=>!f || n.name.toLowerCase().includes(f) || (n.tags||[]).some(t=>t.toLowerCase().includes(f)));
+  $('nodes-ct').textContent=NODES.length+(NODES.length===1?' node':' nodes')+' · '+NODES.filter(n=>n.online).length+' online';
+  if(!list.length){ $('nodes').innerHTML='<div class="empty" style="grid-column:1/-1">'+(NODES.length?'No nodes match your filter.':'No nodes yet — click <b>+ Add node</b>.')+'</div>'; return; }
+  $('nodes').innerHTML=list.map(n=>`
+    <div class="node" onclick='openNode(${JSON.stringify(n.id)})'>
+      <div class="top"><span class="dot ${n.online?'on':''}"></span><span class="name">${esc(n.name)}</span>
+        <span class="status-tag ${n.online?'on':''}">${n.online?'online':'offline'}</span></div>
+      <div class="meta">${esc(n.id)}</div>
+      <div class="kv"><span>platform</span><b>${esc(n.os)}/${esc(n.arch)}</b></div>
+      <div class="kv"><span>address</span><b>${esc(n.addr)}</b></div>
+      <div class="kv"><span>last seen</span><b>${ago(n.last_seen)}</b></div>
+      <div class="chips">${(n.tags||[]).map(t=>`<span class="chip">${esc(t)}</span>`).join('')||'<span class="meta">no tags</span>'}</div>
+    </div>`).join('');
+}
+
+function renderSessions(sessions){
+  $('sess-ct').textContent=sessions.length+(sessions.length===1?' session':' sessions');
+  if(!sessions.length){ $('sessions').innerHTML='<div class="empty">No active sessions.</div>'; return; }
+  $('sessions').innerHTML=`<table><thead><tr><th>Session</th><th>Node</th><th>Created</th><th>Last used</th><th></th></tr></thead><tbody>`+
+    sessions.map(s=>`<tr><td style="color:var(--accent)">${esc(s.session_id)}</td><td>${esc(s.node_name||s.node_id)}</td>
+      <td>${ago(s.created_at)}</td><td>${ago(s.last_used)}</td>
+      <td style="text-align:right"><button class="iconbtn" onclick='unbindSession(${JSON.stringify(s.session_id)})'>unbind ✕</button></td></tr>`).join('')+
+    `</tbody></table>`;
+}
+async function unbindSession(id){ if(!confirm('Unbind session "'+id+'"?')) return;
+  try{ await api('/v1/sessions/'+encodeURIComponent(id),{method:'DELETE'}); toast('session unbound'); refresh(); }
+  catch(e){ toast(e.message); } }
+
+/* ---- node drawer ---- */
+function paintDrawerHead(n){ $('d-name').textContent=n.name; $('d-dot').className='dot '+(n.online?'on':'');
+  $('d-status').className='status-tag '+(n.online?'on':''); $('d-status').textContent=n.online?'online':'offline'; }
+async function openNode(id){
+  try{ curNode=await api('/v1/nodes/'+encodeURIComponent(id)); }catch(e){ return toast(e.message); }
+  const n=curNode; paintDrawerHead(n);
+  $('d-body').innerHTML=`
+    <div class="d-sec"><h4>Details</h4><div class="d-kv">
+      <span>id</span><b>${esc(n.id)}</b><span>platform</span><b>${esc(n.os)}/${esc(n.arch)}</b>
+      <span>address</span><b>${esc(n.addr)}</b><span>last seen</span><b>${ago(n.last_seen)}</b>
+      <span>added</span><b>${ago(n.created_at)}</b></div></div>
+
+    <div class="d-sec"><h4>Name &amp; tags</h4>
+      <input id="e-name" value="${esc(n.name)}">
+      <div class="field-row"><input id="e-tags" placeholder="comma-separated tags" value="${esc((n.tags||[]).join(', '))}">
+        <button class="btn" onclick='saveNode()'>Save</button></div>
+    </div>
+
+    <div class="d-sec"><h4>Console</h4>
+      <div class="console">
+        <div class="con-out" id="con-out"><span class="x">Run a command on this node. Output streams live.</span></div>
+        <div class="con-in"><input id="con-cmd" placeholder="uname -a" spellcheck="false"
+            onkeydown="if(event.key==='Enter')runConsole()"><button class="btn" onclick="runConsole()">Run</button></div>
+      </div>
+      <div class="con-opts">
+        <input id="con-iso" placeholder="isolation (e.g. docker:alpine)" spellcheck="false">
+        <input id="con-sess" placeholder="session id (optional)" spellcheck="false">
+      </div>
+    </div>
+
+    <div class="d-sec"><h4>Danger zone</h4>
+      <button class="btn danger" onclick='removeNode()'>Remove node from fleet</button>
+      <div class="hint">Removes it from the registry and unbinds its sessions. The machine keeps running; re-add with a new token.</div>
+    </div>`;
+  $('overlay').style.display='block'; $('drawer').classList.add('open');
+}
+function closeDrawer(){ $('drawer').classList.remove('open'); $('overlay').style.display='none'; curNode=null; }
+
+async function saveNode(){
+  const name=$('e-name').value.trim();
+  const tags=$('e-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  try{ curNode=await api('/v1/nodes/'+encodeURIComponent(curNode.id),{method:'PATCH',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({name,tags})});
+    toast('saved'); paintDrawerHead(curNode); refresh(); }
+  catch(e){ toast(e.message); }
+}
+async function removeNode(){ const n=curNode; if(!confirm('Remove "'+n.name+'" from the fleet?')) return;
+  try{ await api('/v1/nodes/'+encodeURIComponent(n.id),{method:'DELETE'}); toast('node removed'); closeDrawer(); refresh(); }
+  catch(e){ toast(e.message); } }
+
+/* ---- web console (SSE over fetch) ---- */
+function conLine(html,cls){ const o=$('con-out'); const s=document.createElement('span'); if(cls)s.className=cls; s.innerHTML=html; o.appendChild(s); o.scrollTop=o.scrollHeight; }
+async function runConsole(){
+  const cmd=$('con-cmd').value.trim(); if(!cmd) return;
+  const iso=$('con-iso').value.trim(), sess=$('con-sess').value.trim();
+  const out=$('con-out'); out.innerHTML='';
+  conLine('$ '+esc(cmd)+'\n','x');
+  $('con-cmd').value='';
+  try{
+    const r=await fetch(SERVER+'/v1/exec',{method:'POST',
+      headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},
+      body:JSON.stringify({node_id:curNode.id,command:cmd,isolation:iso,session_id:sess})});
+    if(!r.ok){ const e=await r.json().catch(()=>({error:r.statusText})); conLine(esc(e.error||r.statusText)+'\n','xerr'); return; }
+    const reader=r.body.getReader(), dec=new TextDecoder(); let buf='';
+    for(;;){ const {value,done}=await reader.read(); if(done) break; buf+=dec.decode(value,{stream:true});
+      let i; while((i=buf.indexOf('\n\n'))>=0){ const frame=buf.slice(0,i); buf=buf.slice(i+2);
+        const line=frame.split('\n').find(l=>l.startsWith('data:')); if(!line) continue;
+        let ev; try{ ev=JSON.parse(line.slice(5).trim()); }catch(_){ continue; }
+        if(ev.stream==='stdout') conLine(esc(ev.data));
+        else if(ev.stream==='stderr') conLine(esc(ev.data),'e');
+        else if(ev.stream==='error') conLine('\n'+esc(ev.data)+'\n','xerr');
+        else if(ev.stream==='exit') conLine('\n[exit '+ev.code+']\n', ev.code===0?'x':'xerr');
+      } }
+  }catch(e){ conLine('\n'+esc(e.message)+'\n','xerr'); }
+  refresh();
+}
+
+/* ---- add node ---- */
+function openAdd(){ $('m-out').innerHTML=''; $('m-tags').value=''; $('m-mint').style.display=''; $('modal').style.display='grid'; }
+function closeAdd(){ $('modal').style.display='none'; }
+async function mint(){
+  const tags=$('m-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  try{ const r=await api('/v1/enroll-tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tags,ttl_seconds:900})});
+    const tagArgs=tags.map(t=>'--tag '+t).join(' ');
+    const cmd=`openbox agent --server ${r.server} --token ${r.token}${tagArgs?' '+tagArgs:''}`;
+    $('m-mint').style.display='none';
+    $('m-out').innerHTML=`<div class="cmd" id="cmd">${esc(cmd)}</div>
+      <div class="actions" style="margin-top:12px"><button class="btn ghost" onclick="navigator.clipboard.writeText(document.getElementById('cmd').textContent).then(()=>toast('copied'))">Copy</button></div>
+      <div class="hint">Token valid 15 min · expires after one node enrolls.</div>`;
+  }catch(e){ $('m-out').innerHTML='<div class="err">'+esc(e.message)+'</div>'; }
+}
+
+(function(){
+  const saved=localStorage.getItem('obx'); $('g-server').value=location.origin;
+  if(saved){ try{ const o=JSON.parse(saved); SERVER=o.server; TOKEN=o.token;
+    api('/v1/whoami').then(startApp).catch(()=>{ $('gate').style.display='grid'; }); return; }catch(e){} }
+  $('gate').style.display='grid';
+})();
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeAdd(); closeDrawer(); }
+  if(e.key==='Enter'&&$('gate').style.display!=='none'&&$('gate').style.display!=='') login(); });
+</script>
+</body>
+</html>

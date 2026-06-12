@@ -1,0 +1,14 @@
+# build artifacts
+/openbox
+/dist/
+*.test
+*.out
+
+# local state
+*.db
+*.db-*
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
