@@ -95,6 +95,31 @@ func (c *CA) SignHostCert(hostPub ssh.PublicKey, principals []string, validFor t
 	return cert, nil
 }
 
+// FromPEM builds a CA from a PEM-wrapped OpenSSH private key held in memory.
+// Used by the hosted control plane, which receives the CA key as a secret env
+// var (OPENBOX_CA_KEY) rather than reading it from an ephemeral container disk.
+func FromPEM(pemKey []byte) (*CA, error) {
+	signer, err := ssh.ParsePrivateKey(pemKey)
+	if err != nil {
+		return nil, fmt.Errorf("parse CA key from PEM: %w", err)
+	}
+	return New(signer), nil
+}
+
+// GeneratePEM returns a fresh CA private key as PEM bytes — useful for minting
+// the secret you hand to a hosted deployment (`openbox ca-keygen`).
+func GeneratePEM() ([]byte, error) {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("generate CA key: %w", err)
+	}
+	pemBlock, err := ssh.MarshalPrivateKey(priv, "openbox-ca")
+	if err != nil {
+		return nil, fmt.Errorf("marshal CA key: %w", err)
+	}
+	return pem.EncodeToMemory(pemBlock), nil
+}
+
 // LoadOrCreate loads a CA key from path, generating and persisting a new one if it
 // does not exist. The key is stored as a PEM-wrapped OpenSSH private key.
 func LoadOrCreate(path string) (*CA, error) {

@@ -62,3 +62,22 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
         run: go build -o /dev/null ./cmd/openbox
+
+  # Typecheck the Cloudflare Worker so the deploy glue can't silently rot. No CF
+  # credentials needed: `wrangler types` reads the local config, tsc checks types.
+  worker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cloudflare/package-lock.json
+      - run: npm ci
+      - run: npx wrangler types
+      - run: npx tsc --noEmit

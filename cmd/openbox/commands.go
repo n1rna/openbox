@@ -21,6 +21,27 @@ import (
 	"openbox.io/openbox/internal/store"
 )
 
+// envOr returns the environment value for key, or def if unset/empty.
+func envOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+// envControlAddr resolves the control-plane listen address from the environment.
+// OPENBOX_ADDR wins; otherwise PORT (as set by container platforms) becomes
+// ":PORT"; otherwise the loopback default.
+func envControlAddr() string {
+	if a := os.Getenv("OPENBOX_ADDR"); a != "" {
+		return a
+	}
+	if p := os.Getenv("PORT"); p != "" {
+		return ":" + p
+	}
+	return defaultControlAddr
+}
+
 // stringSlice is a repeatable string flag (e.g. --tag a --tag b).
 type stringSlice []string
 
@@ -83,10 +104,12 @@ func cmdWhoami(args []string) int {
 
 func cmdControl(args []string) int {
 	fs := flag.NewFlagSet("control", flag.ContinueOnError)
-	addr := fs.String("addr", defaultControlAddr, "listen address")
-	url := fs.String("url", defaultControlURL, "public base URL advertised to nodes")
-	dbPath := fs.String("db", filepath.Join(config.Home(), "control", "openbox.db"), "sqlite database path")
-	caPath := fs.String("ca", filepath.Join(config.Home(), "control", "ca_key"), "CA private key path")
+	// Defaults fall back to environment so the same binary runs unconfigured
+	// locally and fully env-driven in a container (Cloudflare/Neon).
+	addr := fs.String("addr", envControlAddr(), "listen address ($OPENBOX_ADDR / $PORT)")
+	url := fs.String("url", envOr("OPENBOX_PUBLIC_URL", defaultControlURL), "public base URL advertised to nodes ($OPENBOX_PUBLIC_URL)")
+	dbPath := fs.String("db", envOr("OPENBOX_DB", filepath.Join(config.Home(), "control", "openbox.db")), "database DSN: sqlite path or postgres:// URL ($OPENBOX_DB)")
+	caPath := fs.String("ca", filepath.Join(config.Home(), "control", "ca_key"), "CA private key path (ignored if $OPENBOX_CA_KEY is set)")
 	mesh := meshFlags{}
 	fs.BoolVar(&mesh.enabled, "mesh", false, "join the mesh so the web console can reach mesh nodes")
 	fs.StringVar(&mesh.control, "mesh-control", "", "coordination server URL (Headscale/Tailscale)")
@@ -107,7 +130,14 @@ func cmdControl(args []string) int {
 	}
 	defer st.Close()
 
-	authority, err := ca.LoadOrCreate(*caPath)
+	// The CA key comes from a secret env var in a hosted deployment (the
+	// container disk is ephemeral); otherwise it lives on disk.
+	var authority *ca.CA
+	if pemKey := os.Getenv("OPENBOX_CA_KEY"); pemKey != "" {
+		authority, err = ca.FromPEM([]byte(pemKey))
+	} else {
+		authority, err = ca.LoadOrCreate(*caPath)
+	}
 	if err != nil {
 		return fail(err)
 	}
@@ -136,6 +166,18 @@ func cmdControl(args []string) int {
 	if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fail(err)
 	}
+	return 0
+}
+
+// cmdCAKeygen prints a fresh CA private key (PEM) for use as the OPENBOX_CA_KEY
+// secret in a hosted deployment. Keep the output secret and backed up: whoever
+// holds it can mint user certs for every node.
+func cmdCAKeygen(args []string) int {
+	pemKey, err := ca.GeneratePEM()
+	if err != nil {
+		return fail(err)
+	}
+	os.Stdout.Write(pemKey)
 	return 0
 }
 

@@ -9,7 +9,7 @@ is the CLI, the agent, and the control plane.
 ## One-line install
 
 ```sh
-curl -fsSL https://openbox.n1rna.net/install.sh | sh
+curl -fsSL https://docs.opbx.net/install.sh | sh
 ```
 
 The script detects your OS and architecture, downloads the matching binary from
@@ -21,10 +21,10 @@ Override the defaults with environment variables:
 
 ```sh
 # pin a version
-OPENBOX_VERSION=v0.1.0 curl -fsSL https://openbox.n1rna.net/install.sh | sh
+OPENBOX_VERSION=v0.1.0 curl -fsSL https://docs.opbx.net/install.sh | sh
 
 # install somewhere else
-OPENBOX_BIN_DIR=~/bin   curl -fsSL https://openbox.n1rna.net/install.sh | sh
+OPENBOX_BIN_DIR=~/bin   curl -fsSL https://docs.opbx.net/install.sh | sh
 ```
 
 | Variable | Default | Purpose |

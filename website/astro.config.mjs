@@ -6,7 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 // https://astro.build/config
 export default defineConfig({
-	site: "https://openbox.n1rna.net",
+	site: "https://docs.opbx.net",
 	integrations: [
 		starlight({
 			title: "openbox",
@@ -39,6 +39,10 @@ export default defineConfig({
 						{ label: "Architecture", slug: "architecture" },
 						{ label: "Mesh networking", slug: "mesh" },
 					],
+				},
+				{
+					label: "Operations",
+					items: [{ label: "Hosted deployment", slug: "deploy" }],
 				},
 			],
 		}),

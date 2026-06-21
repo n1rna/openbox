@@ -1,0 +1,34 @@
+{
+  // openbox control plane on Cloudflare Containers.
+  //
+  // The Worker (src/index.ts) is a thin front door: it forwards every request to
+  // a single container-backed Durable Object that runs the Go control plane
+  // (built from the repo-root Dockerfile). State lives in Neon Postgres and the
+  // CA key is a secret, so the ephemeral container disk holds nothing durable.
+  //
+  // Secrets (set once with `wrangler secret put`, NOT committed):
+  //   DATABASE_URL     postgres://… Neon connection string
+  //   OPENBOX_CA_KEY   PEM from `openbox ca-keygen`
+  //   OPENBOX_MESH_AUTHKEY  (optional) tailnet pre-auth key if nodes are on the mesh
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "openbox-control",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-01",
+  "containers": [
+    {
+      "class_name": "OpenboxControl",
+      "image": "../Dockerfile",
+      "image_build_context": "..",
+      "instance_type": "basic",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "CONTROL", "class_name": "OpenboxControl" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OpenboxControl"] }],
+  "observability": { "enabled": true },
+  "vars": {
+    "OPENBOX_PUBLIC_URL": "https://opbx.net"
+  }
+}

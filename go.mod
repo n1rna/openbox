@@ -3,6 +3,7 @@ module openbox.io/openbox
 go 1.26.4
 
 require (
+	github.com/jackc/pgx/v5 v5.10.0
 	golang.org/x/crypto v0.53.0
 	modernc.org/sqlite v1.52.0
 	tailscale.com v1.100.0
@@ -26,6 +27,9 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hdevalence/ed25519consensus v0.2.0 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jsimonetti/rtnetlink v1.4.0 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

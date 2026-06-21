@@ -1,0 +1,53 @@
+name: Deploy control plane
+
+# Builds the openbox control-plane container (repo-root Dockerfile) and deploys
+# it to Cloudflare Containers via wrangler. wrangler builds + pushes the image to
+# Cloudflare's managed registry and rolls out the Worker + container Durable Object.
+#
+# Required repo secrets:
+#   CLOUDFLARE_API_TOKEN   token with Workers Scripts + Containers + Pages edit
+#   CLOUDFLARE_ACCOUNT_ID  your account id
+#
+# One-time (not in CI — see docs/deploy.md):
+#   wrangler secret put DATABASE_URL     # Neon postgres:// URL
+#   wrangler secret put OPENBOX_CA_KEY   # output of `openbox ca-keygen`
+# and bind opbx.net to the Worker in the Cloudflare dashboard.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+      - "Dockerfile"
+      - "cloudflare/**"
+      - ".github/workflows/deploy-control.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install worker deps
+        run: npm ci
+        working-directory: cloudflare
+
+      - name: Deploy to Cloudflare Containers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare
+          command: deploy

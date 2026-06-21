@@ -59,6 +59,8 @@ func run(args []string) int {
 		return cmdDaemon(args[1:])
 	case "node":
 		return cmdNode(args[1:])
+	case "ca-keygen":
+		return cmdCAKeygen(args[1:])
 	case "nodes":
 		return cmdNodes(args[1:])
 	case "run":

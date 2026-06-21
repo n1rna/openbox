@@ -12,18 +12,27 @@ openbox -t mac -s build make             # …share cwd + env, run in order…
 openbox -t mac -s build ./ship.sh        # …in the same shell on the same node
 ```
 
-**Docs:** [openbox.n1rna.net](https://openbox.n1rna.net)
+**Docs:** [docs.opbx.net](https://docs.opbx.net)
 
 ## Install
 
 One static binary, no runtime dependencies:
 
 ```bash
-curl -fsSL https://openbox.n1rna.net/install.sh | sh
+curl -fsSL https://docs.opbx.net/install.sh | sh
 ```
 
 Or grab a [release](https://github.com/n1rna/openbox/releases) tarball, or build
-from source with `make build`. See the [install guide](https://openbox.n1rna.net/install/).
+from source with `make build`. See the [install guide](https://docs.opbx.net/install/).
+
+## Hosted vs self-hosted
+
+Run the control plane yourself with `openbox control` (a local SQLite file, zero
+setup), or deploy it as a live service. The hosted reference deployment runs on
+**Cloudflare Containers** with a **Neon Postgres** database and ships via GitHub
+Actions — the container is stateless (DB in Neon, CA key as a secret), and docs
+publish to Cloudflare Pages. See [`docs/deploy.md`](https://docs.opbx.net/deploy/)
+and the [`cloudflare/`](cloudflare/) directory.
 
 ## How it works
 
@@ -168,7 +177,7 @@ internal/transport     network substrate behind an interface (TCP + embedded tsn
 internal/ca            SSH certificate authority
 internal/certauth      mutual cert verification (agent ⇄ client)  [tested]
 internal/control       control-plane HTTP service + dashboard
-internal/store         sqlite registry / sessions (pure-Go driver)
+internal/store         registry / sessions — sqlite or postgres (pure-Go drivers)
 internal/agent         node daemon: register, serve, heartbeat, exec
 internal/session       persistent shell sessions                  [tested]
 internal/isolation     native / docker / nspawn backends          [tested]

@@ -1,0 +1,19 @@
+{
+  "name": "openbox-control-worker",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker + container that runs the openbox control plane",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "^0.3.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "wrangler": "^4.103.0"
+  }
+}

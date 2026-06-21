@@ -1,15 +1,14 @@
 name: Deploy docs site
 
 # Builds the Astro + Starlight site in `website/` (which loads markdown from
-# `docs/`) and ships it to GitHub Pages at https://openbox.n1rna.net.
+# `docs/`) and deploys it to Cloudflare Pages, served at https://docs.opbx.net.
+# install.sh is copied into the site so it's also served at
+# https://docs.opbx.net/install.sh.
 #
-# install.sh is copied from the repo root into the site so it's served at
-# https://openbox.n1rna.net/install.sh — a single source of truth with the
-# canonical script reviewable at the repo root.
-#
-# One-time setup in the repo: Settings → Pages → Source = "GitHub Actions".
-# DNS: a CNAME record `openbox` → `n1rna.github.io.` (the CNAME file in
-# website/public pins the custom domain).
+# Required repo secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID.
+# One-time: create the Pages project `openbox-docs` and bind docs.opbx.net to it
+# (see docs/deploy.md). The Worker at opbx.net is deployed separately
+# (deploy-control.yaml).
 
 on:
   push:
@@ -19,31 +18,13 @@ on:
       - "docs/**"
       - "install.sh"
       - ".github/workflows/deploy-docs.yaml"
-  pull_request:
-    paths:
-      - "website/**"
-      - "docs/**"
-      - "install.sh"
-      - ".github/workflows/deploy-docs.yaml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-# One concurrent deploy; don't cancel in-progress (Pages uploads aren't
-# idempotent if interrupted).
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
-env:
-  BUILD_PATH: "website"
 
 jobs:
-  build:
-    name: Build
+  deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -53,33 +34,20 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Setup Pages
-        id: pages
-        uses: actions/configure-pages@v6
-
       - name: Stage install.sh into the site
-        run: cp install.sh "${BUILD_PATH}/public/install.sh"
+        run: cp install.sh website/public/install.sh
 
       - name: Install dependencies
         run: bun install
-        working-directory: ${{ env.BUILD_PATH }}
+        working-directory: website
 
       - name: Build with Astro
         run: bun run build
-        working-directory: ${{ env.BUILD_PATH }}
+        working-directory: website
 
-      - uses: actions/upload-pages-artifact@v5
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
         with:
-          path: ${{ env.BUILD_PATH }}/dist
-
-  deploy:
-    name: Deploy
-    if: github.event_name != 'pull_request'
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v5
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy website/dist --project-name=openbox-docs --branch=main

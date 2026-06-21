@@ -136,7 +136,7 @@ jobs:
             echo "## Install"
             echo ""
             echo '```sh'
-            echo "curl -fsSL https://openbox.n1rna.net/install.sh | sh"
+            echo "curl -fsSL https://docs.opbx.net/install.sh | sh"
             echo '```'
             echo ""
             echo "## Assets"

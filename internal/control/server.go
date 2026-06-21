@@ -53,6 +53,11 @@ func New(st *store.Store, ca *ca.CA, publicURL string, tr transport.Transport) *
 // Handler returns the HTTP routes.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	// Health check (unauthenticated; used by container platforms / load balancers).
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok"}`))
+	})
 	// Node-facing (enroll-token / node-id authenticated).
 	mux.HandleFunc("POST /v1/nodes/register", s.handleRegister)
 	mux.HandleFunc("POST /v1/nodes/heartbeat", s.handleHeartbeat)

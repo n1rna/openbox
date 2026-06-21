@@ -1,7 +1,7 @@
 #!/bin/sh
 # openbox installer.
 #
-#   curl -fsSL https://openbox.n1rna.net/install.sh | sh
+#   curl -fsSL https://docs.opbx.net/install.sh | sh
 #
 # Downloads the right prebuilt binary for your OS/arch from the latest GitHub
 # release, verifies its SHA-256, and installs it onto your PATH. No build
@@ -125,5 +125,5 @@ Next steps:
   openbox nodes
   openbox -t <tag> <command>
 
-Docs: https://openbox.n1rna.net
+Docs: https://docs.opbx.net
 EOF

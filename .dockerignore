@@ -1,0 +1,11 @@
+# keep the build context small + secrets out
+.git
+dist/
+openbox
+*.db
+*.db-*
+website/
+cloudflare/node_modules/
+**/.DS_Store
+*.test
+*.out
