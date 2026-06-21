@@ -62,9 +62,24 @@ openbox control --mesh \
   --mesh-authkey tskey-…
 ```
 
-## Latency note
+## Keep the mesh warm with openboxd
 
-The CLI brings up a tailnet node per invocation, which adds a few seconds on a
-cold start. A future local `openboxd` daemon will hold the connection so
-mesh-targeted commands are instant. On a LAN, plain TCP (the default) has no such
-cost.
+Without a daemon, the CLI brings up its own tailnet node on every invocation,
+which adds a few seconds on a cold start. Run **openboxd** to hold the mesh open
+once and make every command instant:
+
+```sh
+openbox daemon --mesh \
+  --mesh-control https://headscale.example.com \
+  --mesh-authkey tskey-…
+```
+
+The daemon listens on a local Unix socket (`~/.openbox/openboxd.sock`). When it's
+running, `openbox -t … <cmd>` automatically forwards the request to it instead of
+building its own transport — so you keep the warm WireGuard connection across
+invocations. If no daemon is running, the CLI falls back to the inline path
+transparently (set `OPENBOX_NO_DAEMON=1` to force that). See the
+[CLI reference](/cli/#openbox-daemon) for running it under systemd.
+
+On a LAN, plain TCP (the default) has no join cost, but the daemon still helps if
+you want a single long-lived process owning node connections.

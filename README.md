@@ -116,6 +116,7 @@ run `openbox control --mesh …` if your nodes are on the overlay.
 | `openbox whoami` | show the logged-in user |
 | `openbox control [--addr --url --db --ca]` | run the self-hosted control plane |
 | `openbox agent [--server --token --addr --tag --name]` | run the node daemon |
+| `openbox daemon [--mesh …]` | run openboxd: hold the mesh open for an instant CLI |
 | `openbox node token [--tag …]` | mint a node enrollment token |
 | `openbox node add --host user@ip [--password\|--key] [--tag …]` | bootstrap a remote node over SSH |
 | `openbox nodes [--tag t]` | list your nodes |
@@ -163,7 +164,7 @@ a future local `openboxd` will hold the connection to make this instant.
 
 ```
 cmd/openbox            CLI + agent entry (one binary)
-internal/transport     network substrate behind an interface (TCP today, tsnet next)
+internal/transport     network substrate behind an interface (TCP + embedded tsnet mesh)
 internal/ca            SSH certificate authority
 internal/certauth      mutual cert verification (agent ⇄ client)  [tested]
 internal/control       control-plane HTTP service + dashboard
@@ -172,6 +173,7 @@ internal/agent         node daemon: register, serve, heartbeat, exec
 internal/session       persistent shell sessions                  [tested]
 internal/isolation     native / docker / nspawn backends          [tested]
 internal/sshexec       shared SSH exec core (CLI + web console)
+internal/daemon        openboxd: local socket daemon holding the transport  [tested]
 internal/bootstrap     remote SSH enrollment (methods 1 & 2)
 internal/cpclient      control-plane HTTP client
 internal/config        on-disk CLI + agent state
@@ -183,9 +185,8 @@ internal/api           shared wire types
 Working and tested end-to-end: control plane, SSH CA, login, enrollment (token +
 remote SSH bootstrap), node registry with heartbeats, tag/session resolution, mutual
 cert auth, persistent sessions, isolation tiers (docker verified live), the embedded
-**Tailscale mesh** (verified against Headscale), and the web dashboard.
+**Tailscale mesh** (verified against Headscale), the **openboxd** daemon (holds the
+transport open so the CLI is instant), and the web dashboard.
 
 **Hardening still open** (marked `TODO` in code): authenticate node heartbeats with a
-per-node token, and pin the remote host key (`known_hosts`) during SSH bootstrap. A
-future local `openboxd` daemon would hold the mesh connection so the CLI is instant
-rather than joining the tailnet per invocation.
+per-node token, and pin the remote host key (`known_hosts`) during SSH bootstrap.

@@ -17,6 +17,7 @@ import (
 	"openbox.io/openbox/internal/config"
 	"openbox.io/openbox/internal/control"
 	"openbox.io/openbox/internal/cpclient"
+	"openbox.io/openbox/internal/daemon"
 	"openbox.io/openbox/internal/store"
 )
 
@@ -181,6 +182,49 @@ func cmdAgent(args []string) int {
 		Tags:        tags,
 	})
 	if err != nil {
+		return fail(err)
+	}
+	return 0
+}
+
+// --- daemon (openboxd) ---
+
+func cmdDaemon(args []string) int {
+	fs := flag.NewFlagSet("daemon", flag.ContinueOnError)
+	socket := fs.String("socket", daemon.DefaultSocketPath(), "unix socket to listen on")
+	mesh := meshFlags{}
+	fs.BoolVar(&mesh.enabled, "mesh", false, "join the Tailscale overlay and hold it open")
+	fs.StringVar(&mesh.control, "mesh-control", "", "coordination server URL (Headscale/Tailscale)")
+	fs.StringVar(&mesh.authKey, "mesh-authkey", "", "mesh pre-auth key (first join only)")
+	fs.StringVar(&mesh.hostname, "mesh-hostname", "", "node name on the tailnet")
+	fs.BoolVar(&mesh.verbose, "mesh-verbose", false, "surface tailscale logs")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	cfg, err := config.LoadClient()
+	if err != nil {
+		return fail(err)
+	}
+	if !cfg.LoggedIn() {
+		return fail(fmt.Errorf("not logged in — run `openbox login` first"))
+	}
+
+	ctx, stop := signalCtx()
+	defer stop()
+
+	tr, err := buildTransport("daemon", mesh)
+	if err != nil {
+		return fail(err)
+	}
+	defer tr.Close()
+
+	if err := daemon.Serve(ctx, daemon.Options{
+		Transport:  tr,
+		Config:     cfg,
+		SocketPath: *socket,
+		Log:        os.Stdout,
+	}); err != nil {
 		return fail(err)
 	}
 	return 0

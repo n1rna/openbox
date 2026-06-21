@@ -22,6 +22,7 @@ import (
 
 	"openbox.io/openbox/internal/client"
 	"openbox.io/openbox/internal/config"
+	"openbox.io/openbox/internal/daemon"
 )
 
 const (
@@ -54,6 +55,8 @@ func run(args []string) int {
 		return cmdControl(args[1:])
 	case "agent":
 		return cmdAgent(args[1:])
+	case "daemon":
+		return cmdDaemon(args[1:])
 	case "node":
 		return cmdNode(args[1:])
 	case "nodes":
@@ -102,13 +105,33 @@ func cmdRun(args []string) int {
 		fmt.Fprintln(os.Stderr, "usage: openbox -t <tag> [-s <session>] <command...>")
 		return 2
 	}
+	ctx, stop := signalCtx()
+	defer stop()
+
+	// If openboxd is running, forward the request to it — it holds the transport
+	// (notably the mesh) open, so this is instant. Falls through to the inline
+	// path when no daemon is listening (or OPENBOX_NO_DAEMON is set).
+	if os.Getenv("OPENBOX_NO_DAEMON") == "" {
+		if conn := daemon.Connect(daemon.DefaultSocketPath()); conn != nil {
+			defer conn.Close()
+			code, err := daemon.Dispatch(ctx, conn, daemon.Request{
+				Tag:       target.Tag,
+				NodeID:    target.NodeID,
+				SessionID: target.SessionID,
+				Isolation: target.Isolation,
+				Command:   cmdline,
+			}, os.Stdout, os.Stderr)
+			if err != nil {
+				return fail(err)
+			}
+			return code
+		}
+	}
+
 	cfg, err := config.LoadClient()
 	if err != nil {
 		return fail(err)
 	}
-
-	ctx, stop := signalCtx()
-	defer stop()
 
 	tr, err := buildTransport("client", meshFlags{})
 	if err != nil {
@@ -188,6 +211,7 @@ commands:
   whoami                              show the logged-in user
   control [flags]                     run the self-hosted control plane
   agent  [flags]                      run the node daemon on this machine
+  daemon [flags]                      run openboxd: hold the mesh open for an instant CLI
   node token [--tag t ...]            mint a node enrollment token
   nodes [--tag t]                     list your nodes
   run -t TAG [-s SID] <command...>    run a command on a node

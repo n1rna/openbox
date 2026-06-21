@@ -14,6 +14,7 @@ plane — selected by subcommand.
 | `openbox whoami` | show the logged-in user |
 | `openbox control [flags]` | run the self-hosted control plane |
 | `openbox agent [flags]` | run the node daemon |
+| `openbox daemon [flags]` | run openboxd: hold the transport/mesh open for an instant CLI |
 | `openbox node token [--tag …]` | mint a node enrollment token |
 | `openbox node add --host user@ip …` | bootstrap a remote node over SSH |
 | `openbox nodes [--tag t]` | list your nodes |
@@ -101,6 +102,46 @@ exec, and heartbeats.
 
 After the first registration the agent saves its identity (node id, host cert,
 CA pubkey, server URL) under `~/.openbox/agent/` and runs without `--server`/`--token`.
+
+## `openbox daemon`
+
+Runs **openboxd**, a long-lived local process that holds the transport — notably
+the embedded [mesh](/mesh/) node — open and runs commands on the CLI's behalf. It
+listens on a Unix socket; when it's running, `openbox -t … <cmd>` forwards the
+request to it instead of building its own transport per invocation, so
+mesh-targeted commands are instant.
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--socket` | `~/.openbox/openboxd.sock` | Unix socket to listen on (`$OPENBOX_DAEMON_SOCKET` overrides) |
+| `--mesh`, `--mesh-control`, `--mesh-authkey`, `--mesh-hostname` | — | join the overlay and hold it open |
+
+The daemon reuses the same dispatch + mutually-cert-verified exec path as the
+inline CLI, so node-side behavior is identical. When no daemon is listening the
+CLI falls back to the inline path automatically; `OPENBOX_NO_DAEMON=1` forces it.
+
+Run it under systemd as a user service so it survives logout/reboot:
+
+```ini
+# ~/.config/systemd/user/openboxd.service
+[Unit]
+Description=openboxd
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/openbox daemon --mesh --mesh-control https://headscale.example.com
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
+```
+
+```sh
+systemctl --user enable --now openboxd.service
+loginctl enable-linger "$USER"
+```
 
 ## `openbox node add`
 
