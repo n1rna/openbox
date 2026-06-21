@@ -4,6 +4,12 @@
 *.test
 *.out
 
+# docs site (deps + build output; website/.gitignore covers the rest)
+website/node_modules/
+website/dist/
+website/.astro/
+website/public/install.sh
+
 # local state
 *.db
 *.db-*

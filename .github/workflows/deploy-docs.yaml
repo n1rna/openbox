@@ -1,0 +1,85 @@
+name: Deploy docs site
+
+# Builds the Astro + Starlight site in `website/` (which loads markdown from
+# `docs/`) and ships it to GitHub Pages at https://openbox.n1rna.net.
+#
+# install.sh is copied from the repo root into the site so it's served at
+# https://openbox.n1rna.net/install.sh — a single source of truth with the
+# canonical script reviewable at the repo root.
+#
+# One-time setup in the repo: Settings → Pages → Source = "GitHub Actions".
+# DNS: a CNAME record `openbox` → `n1rna.github.io.` (the CNAME file in
+# website/public pins the custom domain).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "docs/**"
+      - "install.sh"
+      - ".github/workflows/deploy-docs.yaml"
+  pull_request:
+    paths:
+      - "website/**"
+      - "docs/**"
+      - "install.sh"
+      - ".github/workflows/deploy-docs.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One concurrent deploy; don't cancel in-progress (Pages uploads aren't
+# idempotent if interrupted).
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  BUILD_PATH: "website"
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Stage install.sh into the site
+        run: cp install.sh "${BUILD_PATH}/public/install.sh"
+
+      - name: Install dependencies
+        run: bun install
+        working-directory: ${{ env.BUILD_PATH }}
+
+      - name: Build with Astro
+        run: bun run build
+        working-directory: ${{ env.BUILD_PATH }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.BUILD_PATH }}/dist
+
+  deploy:
+    name: Deploy
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

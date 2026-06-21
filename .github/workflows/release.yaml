@@ -1,0 +1,166 @@
+name: Release
+
+# Two ways to fire this:
+#
+#   1. Push a tag of the form `vX.Y.Z` — the workflow reads the version off the
+#      tag and stamps it into the binary via -ldflags.
+#   2. Manually via the Actions UI (workflow_dispatch). The `tag` input lets you
+#      cut a release (incl. prereleases) from any ref without pushing a tag first.
+#
+# Output: a single GitHub release with one tarball + .sha256 sidecar per platform:
+#
+#   openbox-linux-amd64.tar.gz    openbox-linux-arm64.tar.gz
+#   openbox-darwin-amd64.tar.gz   openbox-darwin-arm64.tar.gz
+#
+# Everything is built on one ubuntu runner: openbox is pure Go (CGO disabled),
+# so a single host cross-compiles every target.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v0.1.1). Created if it does not exist.'
+        required: true
+        default: 'v0.1.0'
+      prerelease:
+        description: 'Mark as prerelease?'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # create releases + upload assets
+
+jobs:
+  # Resolve and validate the tag/version once so it's a single source of truth.
+  meta:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - id: resolve
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          if [[ ! "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?)$ ]]; then
+            echo "::error::tag '$TAG' does not match vX.Y.Z[-suffix]"
+            exit 1
+          fi
+          echo "tag=$TAG"                       >> "$GITHUB_OUTPUT"
+          echo "version=${BASH_REMATCH[1]}"     >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG (version ${BASH_REMATCH[1]})"
+
+  build:
+    needs: meta
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux,  goarch: amd64 }
+          - { goos: linux,  goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build + package
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euxo pipefail
+          name="openbox-${GOOS}-${GOARCH}"
+          mkdir -p "dist/${name}"
+          go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
+            -o "dist/${name}/openbox" ./cmd/openbox
+          tar -C "dist/${name}" -czf "dist/${name}.tar.gz" openbox
+          ( cd dist && sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256" )
+          rm -rf "dist/${name}"
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openbox-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+
+  publish:
+    needs:
+      - meta
+      - build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten into dist/
+        run: |
+          set -euxo pipefail
+          mkdir -p dist
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.sha256' \) -exec cp {} dist/ \;
+          ls -la dist
+
+      - name: Create / update release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.meta.outputs.tag }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euxo pipefail
+          {
+            echo "openbox \`${VERSION}\`"
+            echo ""
+            echo "## Install"
+            echo ""
+            echo '```sh'
+            echo "curl -fsSL https://openbox.n1rna.net/install.sh | sh"
+            echo '```'
+            echo ""
+            echo "## Assets"
+            echo ""
+            echo "| Platform | Tarball |"
+            echo "|---|---|"
+            echo "| Linux x86_64  | \`openbox-linux-amd64.tar.gz\` |"
+            echo "| Linux arm64   | \`openbox-linux-arm64.tar.gz\` |"
+            echo "| macOS Intel   | \`openbox-darwin-amd64.tar.gz\` |"
+            echo "| macOS Apple   | \`openbox-darwin-arm64.tar.gz\` |"
+            echo ""
+            echo "Each asset has a matching \`.sha256\` sidecar."
+          } > /tmp/notes.md
+          cat /tmp/notes.md
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            FLAGS=()
+            if [ "${PRERELEASE:-false}" = "true" ]; then FLAGS+=(--prerelease); fi
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "openbox $VERSION" \
+              --notes-file /tmp/notes.md \
+              "${FLAGS[@]}" \
+              dist/*
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url

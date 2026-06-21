@@ -1,0 +1,22 @@
+{
+  "name": "openbox-docs",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Documentation site for openbox — https://openbox.n1rna.net",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.35.2",
+    "@tailwindcss/vite": "^4.1.13",
+    "astro": "^5.6.1",
+    "sharp": "^0.34.2",
+    "starlight-theme-flexoki": "^0.2.0",
+    "tailwindcss": "^4.1.13"
+  }
+}

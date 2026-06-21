@@ -12,6 +12,19 @@ openbox -t mac -s build make             # …share cwd + env, run in order…
 openbox -t mac -s build ./ship.sh        # …in the same shell on the same node
 ```
 
+**Docs:** [openbox.n1rna.net](https://openbox.n1rna.net)
+
+## Install
+
+One static binary, no runtime dependencies:
+
+```bash
+curl -fsSL https://openbox.n1rna.net/install.sh | sh
+```
+
+Or grab a [release](https://github.com/n1rna/openbox/releases) tarball, or build
+from source with `make build`. See the [install guide](https://openbox.n1rna.net/install/).
+
 ## How it works
 
 openbox has three pieces, all from one Go binary:

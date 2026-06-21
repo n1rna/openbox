@@ -30,6 +30,10 @@ const (
 	defaultAgentAddr   = "127.0.0.1:7600"
 )
 
+// version is stamped at build time with `-ldflags "-X main.version=X.Y.Z"`
+// (see the release workflow / Makefile). Defaults to "dev" for local builds.
+var version = "dev"
+
 func main() { os.Exit(run(os.Args[1:])) }
 
 func run(args []string) int {
@@ -57,7 +61,7 @@ func run(args []string) int {
 	case "run":
 		return cmdRun(args[1:])
 	case "version", "-v", "--version":
-		fmt.Println("openbox 0.1.0-phase1")
+		fmt.Println("openbox " + version)
 		return 0
 	case "help", "-h", "--help":
 		usage()
